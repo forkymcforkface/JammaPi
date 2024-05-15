@@ -109,77 +109,77 @@ static void joypi_close(struct input_dev *dev);
 
 int __init joypi_init(void)
 {
-    int err = 0;
-    int i, j;
+	int err = 0;
+	int i, j;
 
-    printk(KERN_INFO "[JOYPI] Initialize.\n");
-    joy = (struct JoyPi *)kzalloc(sizeof(struct JoyPi), GFP_KERNEL);
-    if (!joy) {
-        pr_err("Failed to allocate memory for joypi.");
-        goto fail0;
-    }
+	printk(KERN_INFO "[JOYPI] Initialize.\n");
+	joy = (struct JoyPi *)kzalloc(sizeof(struct JoyPi), GFP_KERNEL);
+	if(!joy) {
+		pr_err("Failed to allocate memory for joypi.");
+		goto fail0;	
+	}
 
-    mutex_init(&joy->sem);
+	mutex_init(&joy->sem);
 
-    joy->io_expander = mcp23017_init();
-    if (!joy->io_expander) {
-        pr_err("Failed to initialize mcp23017 i2c.");
-        goto fail1;
-    }
+	joy->io_expander = mcp23017_init();
+	if(!joy->io_expander) {
+		pr_err("Failed to initialize mcp23017 i2c.");
+		goto fail1;
+	}
 
-    for (i = 0; i < JOYPI_MAX_DEVICES; ++i)
-    {
-        struct input_dev *input_dev = joy->dev[i] = input_allocate_device();
+	for(i = 0; i < JOYPI_MAX_DEVICES; ++i)
+	{
+		struct input_dev *input_dev = joy->dev[i] = input_allocate_device();
 
-        // set all pins to input
-        mcp23017_set_iodira(joy->io_expander, i, 0xFF);
-        mcp23017_set_iodirb(joy->io_expander, i, 0xFF);
-        // enable pullups
-        mcp23017_set_gppua(joy->io_expander, i, 0xFF);
-        mcp23017_set_gppub(joy->io_expander, i, 0xFF);
+		// set all pins to input
+		mcp23017_set_iodira(joy->io_expander, i, 0xFF);
+		mcp23017_set_iodirb(joy->io_expander, i, 0xFF);
+		// enable pullups
+		mcp23017_set_gppua(joy->io_expander, i, 0xFF);
+		mcp23017_set_gppub(joy->io_expander, i, 0xFF);
 
-        snprintf(joy->name[i], sizeof(joy->name[i]), "RGB-Pi Joystick");
-        snprintf(joy->phys[i], sizeof(joy->phys[i]), "input%d", i);
+		snprintf(joy->name[i], sizeof(joy->name[i]), "RGB-Pi Joystick %d", i);
+		snprintf(joy->phys[i], sizeof(joy->phys[i]), "input%d", i);
 
-        input_dev->name = joy->name[i];
-        input_dev->phys = joy->phys[i];
+		input_dev->name = joy->name[i];
+		input_dev->phys = joy->phys[i];
+		
+		input_dev->id.bustype = BUS_I2C;
+		input_dev->id.vendor = 0xDEAD;
+		input_dev->id.product = 0;
+		input_dev->id.version = 0x0100;
 
-        input_dev->id.bustype = BUS_I2C;
-        input_dev->id.vendor = 0xDEAD;
-        input_dev->id.product = 0;
-        input_dev->id.version = 0x0100;
+		input_set_drvdata(input_dev, joy);
 
-        input_set_drvdata(input_dev, joy);
+		input_dev->open = joypi_open;
+		input_dev->close = joypi_close;
 
-        input_dev->open = joypi_open;
-        input_dev->close = joypi_close;
+		input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+		input_set_abs_params(input_dev, ABS_X, -1, 1, 0, 0);
+		input_set_abs_params(input_dev, ABS_Y, -1, 1, 0, 0);
 
-        input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
-        input_set_abs_params(input_dev, ABS_X, -1, 1, 0, 0);
-        input_set_abs_params(input_dev, ABS_Y, -1, 1, 0, 0);
+		for(j = JOY_BUTTONS; j < MAX_JOYBUTTONS; ++j) {
+			set_bit(g_button_map[j], input_dev->keybit);
+		}
 
-        for (j = JOY_BUTTONS; j < MAX_JOYBUTTONS; ++j) {
-            set_bit(g_button_map[j], input_dev->keybit);
-        }
+		err = input_register_device(input_dev);
+		if (err) goto fail2;
+	}
 
-        err = input_register_device(input_dev);
-        if (err) goto fail2;
-    }
-
-    return 0;
-
+	return 0;
 fail2:
-    for (i = 0; i < JOYPI_MAX_DEVICES; ++i)
-    {
-        if (joy->dev[i]) input_free_device(joy->dev[i]);
-    }
-    mcp23017_free(joy->io_expander);
+	for(i = 0; i < JOYPI_MAX_DEVICES; ++i)
+	{
+		if(joy->dev[i]) input_free_device(joy->dev[i]);
+	}
+	mcp23017_free(joy->io_expander);
 fail1:
-    kfree(joy);
-    joy = NULL;
+	kfree(joy);
+	joy = NULL;
 fail0:
-    return err;
+	return err;
 }
+
 void __exit joypi_exit(void)
 {
 	int i;
