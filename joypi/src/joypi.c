@@ -164,7 +164,12 @@ int __init joypi_init(void)
 
 		err = input_register_device(input_dev);
 		if (err) goto fail2;
+		
+		input_register_device(dev);
+		char *path;
+		path = kobject_get_path(&dev->dev.kobj, GFP_KERNEL);
 	}
+
 
 	return 0;
 fail2:
