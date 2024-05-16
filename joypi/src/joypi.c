@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include "string.h"
 #include "mcp23017.h"
 
 #define DRIVER_DESC "RGB-Pi MCP23017 Joystick"
@@ -29,6 +30,8 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
 
 #define JOYPI_MAX_DEVICES 2
+
+#define MAX_ORDER_FIX_ATTEMPTS 5
 
 struct JoyPi
 {
@@ -127,6 +130,7 @@ int __init joypi_init(void)
 		goto fail1;
 	}
 
+	int attempts=0;
 	for(i = 0; i < JOYPI_MAX_DEVICES; ++i)
 	{
 		struct input_dev *input_dev = joy->dev[i] = input_allocate_device();
@@ -167,6 +171,14 @@ int __init joypi_init(void)
 
 		char *path;
 		path = kobject_get_path(&input_dev->dev.kobj, GFP_KERNEL);
+		//if the second joystick is assigned input10, sorting will break, scrapping/restrating registration
+		if (strstr(path, "input10") != NULL && i==1  && attempts<MAX_ORDER_FIX_ATTEMPTS) {
+			for(j = 0; j < JOYPI_MAX_DEVICES; ++j){
+				if(joy->dev[j]) input_free_device(joy->dev[j]);
+			}
+			attempts++;
+			i=0;
+   		} 
 	}
 
 
