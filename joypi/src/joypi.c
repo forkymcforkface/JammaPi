@@ -20,7 +20,7 @@
 #include <linux/init.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
-#include "string.h"
+#include <linux/string.h>
 #include "mcp23017.h"
 
 #define DRIVER_DESC "RGB-Pi MCP23017 Joystick"
